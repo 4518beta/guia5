@@ -312,7 +312,7 @@ qs:[{q:'¿Qué término se desprecia al calcular ΔA/A?',o:[{v:'(αΔT)²',ok:1}
  {q:'Entonces β = (1/A)·dA/dT vale',o:[{v:'2α',ok:1},{v:'α²',why:'α² viene del término despreciado. El que sobrevive es 2αΔT, y al dividir por ΔT queda 2α.'},{v:'3α',why:'3α es el coeficiente de volumen. La superficie tiene dos dimensiones, no tres.'},{v:'α',why:'Eso sería si el área creciera como una sola longitud. Crecen dos lados a la vez.'}]},
  {q:'Y δ = (1/V)·dV/dT vale',o:[{v:'3α',ok:1},{v:'α³',why:'(1 + αΔT)³ ≈ 1 + 3αΔT. El α³ aparece solo en el término más chico, que se desprecia.'},{v:'2α',why:'2α es para superficie. Un cubo crece en tres dimensiones.'},{v:'6α',why:'No hay seis caras que sumar. El volumen es el producto de tres longitudes.'}]}],
 init(s){s.dT=0;s.a=17e-6},
-props(s){return[atril(),brasero(180,dt=>{s.dT=Math.min(150,s.dT+25*dt);s.h=1;heat([[180,FLOOR-18],[214,FLOOR-30],[244,FLOOR-30]],9,dt)}),pila(430,dt=>{s.dT=Math.max(0,s.dT-35*dt);s.h=1})]},
+props(s){return[atril(),brasero(180,dt=>{s.dT=Math.min(150,s.dT+25*dt);s.h=1;heat([[180,FLOOR-18],[214,FLOOR-30],[244,FLOOR-30]],9,dt)}),pila(430,dt=>{s.dT=Math.max(0,s.dT-35*dt);s.h=1;if(s.dT>0){heat([[262,FLOOR-34],[340,FLOOR-44],[426,FLOOR-22]],6,dt);heat([[352,FLOOR-24],[390,FLOOR-30],[426,FLOOR-22]],5,dt)}})]},
 update(s,dt){if(!s.h)s.dT=newton(s.dT,0,.03,dt);s.h=0},
 draw(s){const k=1+200*s.a*s.dT,hot=s.dT/150;
   R(232,FLOOR-14,40,4,'#3c3c44');R(241,FLOOR-10,22,10,'#2c2c31');
@@ -704,7 +704,7 @@ function update(dt){
   if(s.wait>0){s.wait-=dt;if(s.wait<=0){s.qi++;if(s.qi>=lv.qs.length){setQ();solve()}else{setQ();say('Siguiente pregunta: mirá arriba.')}}}
   if(!s.revealed&&P.x>=DOOR-10&&P.vx>0&&toastT<.3)say('La reja sigue cerrada. Encendé las lámparas correctas.');
   if(s.revealed&&P.x>=712){if(cur<LV.length-1)loadLevel(cur+1);else menu('El claustro queda iluminado','Resolviste las dieciséis salas del TP 5.',false)}
-  cam+=(clamp(P.x-W*.42,0,RW-W)-cam)*Math.min(1,6*dt);
+  cam+=(clamp(P.x-380,0,RW-W)-cam)*Math.min(1,6*dt);
   stepParts(dt);stepChunks(dt)}
 let readT=0;
 function render(){
