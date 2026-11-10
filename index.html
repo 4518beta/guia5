@@ -60,6 +60,9 @@ canvas{display:block;width:100%;height:100%;image-rendering:pixelated}
 .inst dd{margin:0;font-variant-numeric:tabular-nums}
 .task{margin:0;font-size:15px;color:var(--ceniza)}
 .task b{color:var(--hueso);font-weight:500}
+.sims{grid-column:1/-1;margin:0;font-size:15px;color:var(--ceniza)}
+.sims a,.pg a{color:var(--oro)}
+.pg a{color:#7a2a1a}
 .keys{grid-column:1/-1;margin:0;font-size:13px;color:#7d705f}
 kbd{font-family:var(--f-texto);border:1px solid var(--linea);border-bottom-width:2px;border-radius:3px;padding:0 4px;color:var(--hueso);font-size:12px}
 .touch{display:none;justify-content:space-between;user-select:none;-webkit-user-select:none}
@@ -146,7 +149,8 @@ kbd{font-family:var(--f-texto);border:1px solid var(--linea);border-bottom-width
   <div class="below">
     <dl class="inst" id="pRead"></dl>
     <p class="task" id="pTask"></p>
-    <p class="keys"><kbd>←</kbd> <kbd>→</kbd> caminar · <kbd>↑</kbd> o <kbd>Espacio</kbd> saltar · <kbd>E</kbd> usar, mantenela para calentar, enfriar o empujar · <kbd>B</kbd> abrir el libro · <kbd>R</kbd> reiniciar</p>
+    <p class="sims" id="pSims"></p>
+    <p class="keys">Cuadraditos dorados: calor en tránsito. Moléculas azules: lentas; rojas: rápidas. <kbd>←</kbd> <kbd>→</kbd> caminar · <kbd>↑</kbd> o <kbd>Espacio</kbd> saltar · <kbd>E</kbd> usar, mantenela para calentar, enfriar o empujar · <kbd>B</kbd> abrir el libro · <kbd>R</kbd> reiniciar</p>
   </div>
 </div>
 
@@ -229,6 +233,30 @@ function bar(x1,x2,y,h,colFn){for(let x=Math.floor(x1);x<x2;x++)R(x,y,1,h,colFn(
 function pillar(x,top,shake){const s=shake?(Math.random()-.5)*1.5:0;R(x+s,top,14,FLOOR-top,'#4d403c');R(x+2+s,top,2,FLOOR-top,'#6a5a54');R(x-2+s,top-4,18,5,'#5e4f4a');R(x-2+s,FLOOR-4,18,4,'#3a2f2c')}
 
 
+let chunks=[];
+function heat(path,rate,dt){if(Math.random()>=rate*dt)return;let L=0;const seg=[];for(let i=1;i<path.length;i++){const d=Math.hypot(path[i][0]-path[i-1][0],path[i][1]-path[i-1][1]);seg.push(d);L+=d}chunks.push({p:path,seg,L,d:0,w:Math.random()*6.28})}
+function stepChunks(dt){for(const c of chunks)c.d+=36*dt;chunks=chunks.filter(c=>c.d<c.L)}
+function drawChunks(){for(const c of chunks){let d=c.d,i=0;while(i<c.seg.length-1&&d>c.seg[i]){d-=c.seg[i];i++}const a=c.p[i],b=c.p[i+1],f=c.seg[i]?d/c.seg[i]:0;const x=a[0]+(b[0]-a[0])*f+Math.sin(now*6+c.w),y=a[1]+(b[1]-a[1])*f+Math.cos(now*5+c.w);ctx.globalAlpha=clamp(Math.min(c.d,c.L-c.d)/6,0,1);R(x-2,y-2,4,4,'#6a3c0c');R(x-1,y-1,3,3,'#ffcf5a');R(x-1,y-1,1,1,'#fff6d0');ctx.globalAlpha=1}}
+const rnd=(a,b)=>a+Math.random()*(b-a);
+
+function gauss(){return Math.sqrt(-2*Math.log(Math.random()+1e-9))*Math.cos(2*Math.PI*Math.random())}
+function gasInit(n){return Array.from({length:n},()=>({x:Math.random(),y:Math.random(),vx:gauss(),vy:gauss()}))}
+function gasStep(g,T,dt,w,h){const k=Math.sqrt(T/300)*20;for(const m of g){m.x+=m.vx*k*dt/Math.max(w,4);m.y+=m.vy*k*dt/Math.max(h,4);if(m.x<0){m.x=-m.x;m.vx=Math.abs(m.vx)}if(m.x>1){m.x=2-m.x;m.vx=-Math.abs(m.vx)}if(m.y<0){m.y=-m.y;m.vy=Math.abs(m.vy)}if(m.y>1){m.y=2-m.y;m.vy=-Math.abs(m.vy)}}}
+const speedCol=u=>u<1?mix('#4f8fe0','#e8d8a0',(u-.3)/.7):mix('#e8d8a0','#ff4a2a',(u-1)/1);
+function gasDraw(g,x,y,w,h,T,n){const f=Math.sqrt(T/300),N=Math.min(n==null?g.length:n,g.length);for(let i=0;i<N;i++){const m=g[i];R(x+m.x*(w-1),y+m.y*(h-1),1,1,speedCol(Math.hypot(m.vx,m.vy)*f/1.25))}}
+
+function lens(cx,cy,r,o){circ(cx,cy,r+3,'#4a3418');circ(cx,cy,r+1.5,'#c9a14a');circ(cx,cy,r,'#120c0e');
+  ctx.save();ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.clip();
+  const TK=o.T+273,A=.2+Math.pow(TK/293,1.5)*.8,d=8*(o.spread||1),N=Math.ceil(r/d)+1;
+  if(o.ph==='gas'){for(let i=0;i<9;i++){const x=cx+Math.sin(now*(2.1+i*.53)+i*2.1)*r*.85,y=cy+Math.cos(now*(1.7+i*.41)+i*1.3)*r*.85;R(x-1,y-1,3,3,o.col||'#8ec5e6')}}
+  else{const liq=o.ph==='liquid',at=[];for(let j=-N;j<=N;j++)for(let i=-N;i<=N;i++){const k=i*31+j*17,amp=liq?d*.35:A;at.push([i,j,cx+i*d+Math.sin(now*(liq?2.3:19)+k)*amp+(liq?Math.sin(now*.8+k*.3)*d*.35:0),cy+j*d+Math.cos(now*(liq?1.9:23)+k*1.3)*amp+(liq?Math.cos(now*.6+k*.7)*d*.3:0)])}
+    if(!liq){const mp={};at.forEach(a=>mp[a[0]+','+a[1]]=a);ctx.lineWidth=1;ctx.strokeStyle=o.comp?mix('#7a6a5a','#ff4a2a',o.comp):'#6a5a4a';ctx.beginPath();at.forEach(a=>{const b=mp[(a[0]+1)+','+a[1]],c=mp[a[0]+','+(a[1]+1)];if(b){ctx.moveTo(a[2],a[3]);ctx.lineTo(b[2],b[3])}if(c){ctx.moveTo(a[2],a[3]);ctx.lineTo(c[2],c[3])}});ctx.stroke()}
+    at.forEach(a=>R(a[2]-1.5,a[3]-1.5,3,3,o.col||'#d08a4a'));
+    if(o.gas)for(let i=0;i<o.gas;i++){const x=cx+Math.sin(now*(3.1+i*.7)+i)*r*.8,y=cy-r*.5+Math.cos(now*(2.3+i*.5)+i*2)*r*.4;R(x-1,y-1,3,3,'#e8f4fa')}}
+  ctx.restore();ctx.strokeStyle='rgba(255,255,255,.25)';ctx.lineWidth=1;ctx.beginPath();ctx.arc(cx,cy,r-3,3.6,4.4);ctx.stroke();
+  if(o.lab)TX(o.lab,cx,cy+r+11,'#ebe0c6','center')}
+
+
 function drawHermit(x,y,f,moving,carry){
   ctx.save();ctx.translate(Math.round(x),Math.round(y));ctx.scale(f*1.5,1.5);
   const ph=now*11,bob=moving?Math.round(Math.sin(ph*2)*.6):0,st=moving?Math.sin(ph):0,sw=Math.round(Math.sin(now*3+(moving?ph:0)));
@@ -260,8 +288,8 @@ bk:{sec:'21-2',tit:'Escalas de temperatura',f:'T<sub>F</sub> = 9/5 · T<sub>C</s
 sol:'T<sub>F</sub> = 1,8 · 37 + 32 = <b>98,6 °F</b>.',
 qs:[{q:'¿Cuánto son 37 °C en °F?',o:[{v:'98,6 °F',ok:1},{v:'66,6 °F',why:'Multiplicaste 37 por 1,8 pero no sumaste los 32. El cero de la escala Fahrenheit no coincide con el de Celsius.'},{v:'52,6 °F',why:'Usaste 5/9 en lugar de 9/5. Cada grado Celsius equivale a 1,8 grados Fahrenheit, no a 0,56.'},{v:'2,8 °F',why:'Aplicaste la fórmula al revés, la que pasa de °F a °C. Acá el dato está en Celsius.'}]}],
 init(s){s.T=18},
-props(s){return[atril(),brasero(186,dt=>{s.T+=6*dt;s.h=1}),pila(330,dt=>{s.T-=6*dt;s.h=1})]},
-update(s,dt){s.T=clamp(s.T,-10,110);if(!s.h)s.T=newton(s.T,18,.02,dt);s.h=0},
+props(s){return[atril(),brasero(186,dt=>{s.T+=6*dt;s.h=1;heat([[186,FLOOR-18],[214,FLOOR-24],[244,FLOOR-27]],7,dt)}),pila(330,dt=>{s.T-=6*dt;s.h=1;heat([[262,FLOOR-30],[296,FLOOR-34],[328,FLOOR-20]],7,dt)})]},
+update(s,dt){s.T=clamp(s.T,-10,110);if(!s.h)s.T=newton(s.T,18,.02,dt);s.h=0;const x=rnd(236,268);if(s.T>19)heat([[x,FLOOR-30],[x+rnd(-8,8),FLOOR-70]],(s.T-18)*.04,dt);else if(s.T<17)heat([[x+rnd(-8,8),FLOOR-70],[x,FLOOR-30]],(18-s.T)*.04,dt)},
 draw(s){const y=50,h=120,Y=t=>y+h-3-(h-6)*(t+20)/140;
   plaque(214,y-12,30,h+26);plaque(252,y-12,30,h+26);thermo(229,y,h,(s.T+20)/140);thermo(267,y,h,(s.T+20)/140);
   TX('°C',229,y-3,'#4a2e1c','center');TX('°F',267,y-3,'#4a2e1c','center');
@@ -277,14 +305,14 @@ lights(){return[[250,140,90]]}});
 LV.push({id:'5.2',name:'Forja de la placa y el cubo',win:[90],
 enun:'Demostrar que, por la dilatación térmica, el incremento relativo de superficie es β = (1/A)·dA/dT ≅ 2α, donde α es el coeficiente de dilatación lineal. Análogamente, demostrar que el coeficiente cúbico es δ = (1/V)·dV/dT ≅ 3α.',
 dato:'La placa y el cubo son de cobre, α = 17·10<sup>−6</sup> /°C (Halliday, tabla 21-3). El dibujo exagera la dilatación 200 veces; los números son los reales.',
-task:'Calentá en el brasero y compará en los instrumentos el término 2αΔT con el término (αΔT)². Fijate cuál manda.',
+task:'Calentá en el brasero y compará en los instrumentos el término 2αΔT con el término (αΔT)². La lupa muestra por qué se dilata: los átomos vibran más fuerte y se separan.',
 bk:{sec:'21-4',tit:'Dilatación de superficie y volumen',f:'A = L²(1 + αΔT)² = L²(1 + 2αΔT + α²ΔT²)',p:'<p>Cada lado del cuadrado se estira como una barra: L pasa a L(1 + αΔT). El área es lado por lado, y al desarrollar el cuadrado aparecen dos términos.</p><p>αΔT es del orden de 10<sup>−3</sup>, así que α²ΔT² queda cerca de 10<sup>−6</sup>. Ese término se desprecia. Con el cubo pasa lo mismo, pero el binomio está elevado al cubo.</p>'},
 sol:'ΔA/A = 2αΔT + (αΔT)² ≈ 2αΔT, entonces <b>β ≈ 2α</b>. ΔV/V = 3αΔT + 3(αΔT)² + (αΔT)³ ≈ 3αΔT, entonces <b>δ ≈ 3α</b>.',
 qs:[{q:'¿Qué término se desprecia al calcular ΔA/A?',o:[{v:'(αΔT)²',ok:1},{v:'2αΔT',why:'2αΔT es justamente el término que queda. Con αΔT ≈ 10⁻³, el que es mil veces más chico es (αΔT)².'},{v:'ΔT',why:'ΔT no es un término de la suma, es el dato. Lo que se compara son 2αΔT y (αΔT)².'}]},
  {q:'Entonces β = (1/A)·dA/dT vale',o:[{v:'2α',ok:1},{v:'α²',why:'α² viene del término despreciado. El que sobrevive es 2αΔT, y al dividir por ΔT queda 2α.'},{v:'3α',why:'3α es el coeficiente de volumen. La superficie tiene dos dimensiones, no tres.'},{v:'α',why:'Eso sería si el área creciera como una sola longitud. Crecen dos lados a la vez.'}]},
  {q:'Y δ = (1/V)·dV/dT vale',o:[{v:'3α',ok:1},{v:'α³',why:'(1 + αΔT)³ ≈ 1 + 3αΔT. El α³ aparece solo en el término más chico, que se desprecia.'},{v:'2α',why:'2α es para superficie. Un cubo crece en tres dimensiones.'},{v:'6α',why:'No hay seis caras que sumar. El volumen es el producto de tres longitudes.'}]}],
 init(s){s.dT=0;s.a=17e-6},
-props(s){return[atril(),brasero(180,dt=>{s.dT=Math.min(150,s.dT+25*dt);s.h=1}),pila(430,dt=>{s.dT=Math.max(0,s.dT-35*dt);s.h=1})]},
+props(s){return[atril(),brasero(180,dt=>{s.dT=Math.min(150,s.dT+25*dt);s.h=1;heat([[180,FLOOR-18],[214,FLOOR-30],[244,FLOOR-30]],9,dt)}),pila(430,dt=>{s.dT=Math.max(0,s.dT-35*dt);s.h=1})]},
 update(s,dt){if(!s.h)s.dT=newton(s.dT,0,.03,dt);s.h=0},
 draw(s){const k=1+200*s.a*s.dT,hot=s.dT/150;
   R(232,FLOOR-14,40,4,'#3c3c44');R(241,FLOOR-10,22,10,'#2c2c31');
@@ -293,26 +321,27 @@ draw(s){const k=1+200*s.a*s.dT,hot=s.dT/150;
   R(330,FLOOR-12,40,12,'#3a2f2c');const c=22*k,bx=338,by=FLOOR-12;
   ctx.fillStyle=mix('#9a5a2a','#e04a22',hot);ctx.fillRect(bx,by-c,c,c);
   ctx.fillStyle=mix('#c8854a','#ff7a3a',hot);ctx.beginPath();ctx.moveTo(bx,by-c);ctx.lineTo(bx+c*.5,by-c*1.4);ctx.lineTo(bx+c*1.5,by-c*1.4);ctx.lineTo(bx+c,by-c);ctx.fill();
-  ctx.fillStyle=mix('#6e3e1c','#b0381a',hot);ctx.beginPath();ctx.moveTo(bx+c,by);ctx.lineTo(bx+c,by-c);ctx.lineTo(bx+c*1.5,by-c*1.4);ctx.lineTo(bx+c*1.5,by-c*.4);ctx.fill()},
+  ctx.fillStyle=mix('#6e3e1c','#b0381a',hot);ctx.beginPath();ctx.moveTo(bx+c,by);ctx.lineTo(bx+c,by-c);ctx.lineTo(bx+c*1.5,by-c*1.4);ctx.lineTo(bx+c*1.5,by-c*.4);ctx.fill();
+  lens(140,96,26,{T:20+s.dT,spread:1+.0022*s.dT,lab:'átomos de cobre'});line(160,110,236,FLOOR-40,'rgba(201,161,74,.4)')},
 read(s){const x=s.a*s.dT;return[['ΔT',fmt(s.dT,0)+' °C'],['αΔT',x?sci(x):'0'],['2αΔT',x?sci(2*x):'0'],['(αΔT)²',x?sci(x*x):'0']]},
 lights(){return[[290,180,100]]}});
 
 LV.push({id:'5.3',name:'Columna entre muros',win:[90,390],
 enun:'Una barra uniforme de módulo de Young Y y coeficiente de dilatación α se sujeta entre dos planos rígidos, uno en cada extremo, de modo que no puede dilatarse. ¿Cuál es el esfuerzo en la barra cuando la temperatura aumenta ΔT?',
 dato:'La barra de la sala es de acero: Y = 2·10<sup>12</sup> dinas/cm², α = 11·10<sup>−6</sup> /°C.',
-task:'El fuego corre por debajo de toda la barra, así que se calienta pareja. Mirá cuánto se alargaría si estuviera suelta y el esfuerzo que aparece porque los muros no la dejan.',
+task:'El fuego corre por debajo de toda la barra, así que se calienta pareja. En la lupa los átomos vibran más pero no pueden separarse: los resortes se ponen rojos de tan comprimidos.',
 bk:{sec:'21-4',tit:'Dilatación impedida',f:'σ = Y · ΔL/L',p:'<p>Pensalo en dos pasos. Primero la barra se dilata libre, ΔL = αLΔT. Después los muros la empujan de vuelta a su largo original.</p><p>Para comprimirla esa cantidad hace falta un esfuerzo que sale de la ley de Hooke: σ = Y·ΔL/L. Reemplazá ΔL y fijate qué pasa con L.</p>'},
 sol:'Deformación impedida ΔL/L = αΔT, entonces <b>σ = Y·α·ΔT</b>, de compresión. No depende de L ni de la sección.',
 qs:[{q:'¿Cuánto vale el esfuerzo?',o:[{v:'σ = YαΔT',ok:1},{v:'σ = αΔT / Y',why:'Hooke dice σ = Y·deformación. Y multiplica, no divide: un material más rígido hace más fuerza.'},{v:'σ = YαLΔT',why:'Eso es Y por el alargamiento ΔL. El esfuerzo usa la deformación relativa ΔL/L, y ahí la L se cancela.'},{v:'σ = YΔT / α',why:'α tiene que multiplicar a ΔT, porque la deformación térmica es αΔT.'}]},
  {q:'Si la barra fuera el doble de larga, el esfuerzo',o:[{v:'no cambia',ok:1},{v:'se duplica',why:'Se duplica el alargamiento libre, pero también el largo. La deformación relativa αΔT queda igual.'},{v:'se reduce a la mitad',why:'No hay L en σ = YαΔT. Una barra más larga se alarga más, pero en la misma proporción.'}]}],
 init(s){s.dT=0},
-props(s){return[atril(),{type:'none',x:280,r:90,label:'Avivar el fuego',hold(dt){s.dT=Math.min(150,s.dT+20*dt);s.h=1}}]},
+props(s){return[atril(),{type:'none',x:280,r:90,label:'Avivar el fuego',hold(dt){s.dT=Math.min(150,s.dT+20*dt);s.h=1;const x=rnd(190,370);heat([[x,FLOOR-8],[x,194]],10,dt)}}]},
 update(s,dt){if(!s.h)s.dT=newton(s.dT,0,.04,dt);s.act=s.h;s.h=0},
 draw(s){const hot=s.dT/150,sh=s.dT>120;pillar(166,110,sh);pillar(380,110,sh);
   bar(180,380,190,6,()=>mix('#7a7a82','#ff4a22',hot));drawFirePit(186,374,s.act);
   if(s.dT>90){R(170,150,1,8,'#1a1214');R(171,158,1,6,'#1a1214');R(386,140,1,9,'#1a1214');R(385,149,1,6,'#1a1214')}
   const free=200*11e-6*s.dT*40;ctx.globalAlpha=.5;R(380,186,free,2,'#ffd27a');ctx.globalAlpha=1;
-  plaque(262,92,36,36);dial(280,112,13,s.dT/150);TX('σ',280,140,'#ebe0c6','center')},
+  plaque(262,92,36,36);dial(280,112,13,s.dT/150);TX('σ',280,140,'#ebe0c6','center');lens(110,92,24,{T:20+s.dT,comp:s.dT/150,col:'#9aa0a8',lab:'red de acero'})},
 read(s){return[['ΔT',fmt(s.dT,0)+' °C'],['Alargamiento libre ΔL/L',s.dT?sci(11e-6*s.dT):'0'],['Esfuerzo σ',s.dT?sci(2.2e7*s.dT)+' dinas/cm²':'0']]},
 lights(){return[[280,170,120]]}});
 
@@ -326,7 +355,7 @@ qs:[{q:'¿Hacia dónde se corre la unión?',o:[{v:'Hacia el hierro',ok:1},{v:'Ha
  {q:'¿Cuánto vale el esfuerzo?',o:[{v:'1,54·10⁹ dinas/cm²',ok:1},{v:'2,02·10⁹ dinas/cm²',why:'Eso es Y<sub>Cu</sub>α<sub>Cu</sub>ΔT, como si el hierro fuera una pared rígida. El hierro también cede.'},{v:'3,17·10⁹ dinas/cm²',why:'Sumaste YαΔT de cada barra. Los esfuerzos no se suman: es uno solo, el mismo en las dos.'},{v:'2,89·10⁸ dinas/cm²',why:'Restaste los α. Las dos barras se dilatan contra los extremos, así que sus alargamientos se suman.'}]},
  {q:'¿Cuánto se corre la unión?',o:[{v:'3,94·10⁻⁴ L',ok:1},{v:'1,68·10⁻³ L',why:'Esa es la dilatación libre del cobre. Te faltó restarle lo que lo comprime el esfuerzo, σL/Y<sub>Cu</sub>.'},{v:'1,29·10⁻³ L',why:'Eso es solo σL/Y<sub>Cu</sub>, la compresión. El corrimiento es la dilatación libre menos esa compresión.'},{v:'2,65·10⁻⁴ L',why:'Promediaste las dilataciones libres. Las barras tienen distinto Y, así que no ceden lo mismo.'}]}],
 init(s){s.dT=0},
-props(s){return[atril(),{type:'none',x:270,r:90,label:()=>s.dT>=100?'El horno ya está en ΔT = 100 °C':'Avivar el fuego',hold(dt){s.dT=Math.min(100,s.dT+15*dt);s.h=1}}]},
+props(s){return[atril(),{type:'none',x:270,r:90,label:()=>s.dT>=100?'El horno ya está en ΔT = 100 °C':'Avivar el fuego',hold(dt){s.dT=Math.min(100,s.dT+15*dt);s.h=1;if(s.dT<100){const x=rnd(140,400);heat([[x,FLOOR-8],[x,194]],10,dt)}}}]},
 update(s){s.act=s.h&&s.dT<100;s.h=0},
 draw(s){pillar(121,120,false);pillar(405,120,false);const d=21.25*s.dT/100,j=270+d,h=s.dT/100;
   bar(135,j,190,6,()=>mix('#c87533','#ff6a2a',h*.7));bar(j,405,190,6,()=>mix('#6d7078','#e0502a',h*.7));drawFirePit(141,399,s.act||s.dT>=100);
@@ -371,7 +400,7 @@ sol:'Σ m·c·T = 50·60 + 2,1·0 + 0,92·20 + 0,31·40 = 3030,8 cal. Σ m·c = 
 qs:[{q:'¿Cuál es la temperatura final?',o:[{v:'56,8 °C',ok:1},{v:'45,0 °C',why:'Pesaste por la masa y dejaste afuera el calor específico. Un gramo de agua guarda casi 5 veces más calor que uno de aluminio.'},{v:'30,0 °C',why:'Promediaste las cuatro temperaturas. Cada cuerpo pesa según su m·c, y el agua domina.'},{v:'60,0 °C',why:'Los metales entran más fríos que el agua y la enfrían un poco. La temperatura final queda por debajo de 60 °C.'}]}],
 init(s){s.Tw=60;s.st='ped';s.T=ING.map(i=>i.T)},
 props(s){return[atril(),{type:'none',x:150,get label(){return s.st==='ped'?'Tomar la canasta':''},act(){if(s.st==='ped')s.st='carry'}},{type:'none',x:320,r:26,get label(){return s.st==='carry'?'Sumergir los tres lingotes':''},act(){if(s.st==='carry'){s.st='in';for(let k=0;k<10;k++)drop(300+Math.random()*40,FLOOR-24)}}}]},
-update(s,dt){if(s.st!=='in')return;let q=0;ING.forEach((g,i)=>{const Q=.8*(s.Tw-s.T[i])*dt;s.T[i]+=Q/(g.m*g.c);q+=Q});s.Tw-=q/50},
+update(s,dt){if(s.st!=='in')return;let q=0;ING.forEach((g,i)=>{const Q=.8*(s.Tw-s.T[i])*dt;s.T[i]+=Q/(g.m*g.c);q+=Q;const x=301+i*16;if(Q>0)heat([[x+rnd(-14,14),FLOOR-18],[x,FLOOR-15]],Q/dt*.5,dt)});s.Tw-=q/50},
 carry(s){return s.st==='carry'?(x,y)=>{R(x-10,y,20,7,'#6b4a2b');ING.forEach((g,i)=>R(x-8+i*6,y-3,5,4,g.col))}:null},
 draw(s){R(142,FLOOR-20,16,20,'#4d403c');R(141,FLOOR-21,18,2,'#6a5a54');if(s.st==='ped'){R(140,FLOOR-28,20,7,'#6b4a2b');ING.forEach((g,i)=>R(142+i*6,FLOOR-31,5,4,g.col))}
   ING.forEach((g,i)=>TX(g.n+' '+g.T+' °C',150,FLOOR-66+i*10,'#ebe0c6','center'));
@@ -394,6 +423,7 @@ qs:[{q:'¿Cuál es la pendiente de la recta del plomo?',o:[{v:'8,06 °C/s',ok:1}
 init(s){s.on=[0,0];s.T=[10,10];s.t=[0,0];s.melt=0;s.pts=[[[0,10]],[[0,10]]];s.acc=[0,0]},
 props(s){return[atril(),{type:'none',x:170,label:()=>s.on[0]?'Apagar el mechero del plomo':'Encender el mechero del plomo',act(){s.on[0]^=1}},{type:'none',x:320,label:()=>s.on[1]?'Apagar el mechero del agua':'Encender el mechero del agua',act(){s.on[1]^=1}}]},
 update(s,dt){const k=12*dt;
+  if(s.on[0])heat([[170,FLOOR-18],[170,FLOOR-38]],6,dt);if(s.on[1])heat([[320,FLOOR-18],[320,FLOOR-40]],6,dt);
   if(s.on[0]&&s.t[0]<400){s.t[0]+=k;if(s.T[0]<327)s.T[0]=Math.min(327,s.T[0]+25/3.1*k);else if(s.melt<590)s.melt+=25*k;else s.T[0]=Math.min(450,s.T[0]+25/3.3*k);s.acc[0]+=k;if(s.acc[0]>2){s.acc[0]=0;s.pts[0].push([s.t[0],s.T[0]])}}
   if(s.on[1]&&s.t[1]<400){s.t[1]+=k;s.T[1]=Math.min(100,s.T[1]+.25*k);s.acc[1]+=k;if(s.acc[1]>2){s.acc[1]=0;s.pts[1].push([s.t[1],s.T[1]])}}},
 draw(s){[[170,0],[320,1]].forEach(([x,i])=>{R(x-1,FLOOR-14,3,14,'#6a6a72');R(x-4,FLOOR-2,9,2,'#4a4a52');if(s.on[i])for(let k=0;k<2;k++)blue(x,FLOOR-16);R(x-14,FLOOR-30,2,30,'#3a3a40');R(x+12,FLOOR-30,2,30,'#3a3a40');R(x-14,FLOOR-31,28,2,'#3a3a40')});
@@ -415,14 +445,14 @@ function iceQ(Q){const m=100,ci=.5,Lf=79.7,Lv=539.6,Q1=m*ci*20,Q2=m*Lf,Q3=m*100,
 LV.push({id:'5.8',name:'Calorímetro del hielo',win:[60],
 enun:'Una resistencia que desprende 20 cal/s se introduce en 100 g de hielo a −20 °C, dentro de un calorímetro aislado. Dibujar la temperatura en función del tiempo desde que se conecta la resistencia hasta que se evapora toda el agua.',
 dato:'ΔH<sub>fusión</sub> = 79,7 cal/g, ΔH<sub>evaporación</sub> = 539,6 cal/g. c<sub>hielo</sub> ≈ 0,5 cal/g°C (Halliday, tabla 23-2).',
-task:'Conectá la resistencia con la palanca. El tiempo corre 60 veces más rápido. Mirá dónde la curva se aplana.',
+task:'Conectá la resistencia con la palanca. El tiempo corre 60 veces más rápido. Mirá dónde la curva se aplana y qué pasa en la lupa: en las mesetas el calor no acelera las moléculas, rompe la red.',
 bk:{sec:'23-5',tit:'Calores de transformación',f:'Q = m·c·ΔT  y  Q = m·L',p:'<p>Mientras el hielo se funde, o el agua hierve, todo el calor se usa para cambiar de fase y la temperatura no se mueve. En el gráfico eso es una meseta.</p><p>Separá el proceso en cuatro tramos: calentar el hielo, fundirlo, calentar el agua y evaporarla. Calculá el calor de cada tramo y dividilo por 20 cal/s para tener su duración.</p>'},
 sol:'Tramos: 1000 cal (50 s), 7970 cal (<b>398,5 s</b> de meseta a 0 °C), 10000 cal (500 s) y 53960 cal (2698 s de meseta a 100 °C). Total 72930 cal / 20 cal/s ≈ <b>3646 s</b>, poco más de una hora.',
 qs:[{q:'¿Cuánto dura la meseta de fusión?',o:[{v:'398,5 s',ok:1},{v:'7970 s',why:'7970 son calorías, m·L. Para tener segundos dividí por la potencia, 20 cal/s.'},{v:'50 s',why:'Eso es lo que tarda el hielo en subir de −20 °C a 0 °C. La meseta empieza después.'},{v:'2698 s',why:'Esa es la meseta de ebullición, con L = 539,6. La de fusión usa 79,7.'}]},
  {q:'¿Cuánto tarda en evaporarse toda el agua?',o:[{v:'3646 s',ok:1},{v:'948 s',why:'Ahí el agua recién llega a 100 °C. Falta evaporarla, que es el tramo más largo.'},{v:'3596 s',why:'Te olvidaste de calentar el hielo de −20 °C a 0 °C, que lleva 50 s.'},{v:'3198 s',why:'Te salteaste la fusión. Ese tramo suma 398,5 s.'}]}],
 init(s){s.on=0;s.t=0;s.pts=[[0,-20]];s.acc=0},
 props(s){return[atril(),{type:'lever',x:170,get on(){return s.on},label:()=>s.t>=3646.5?'Ya no queda agua':(s.on?'Desconectar la resistencia':'Conectar la resistencia'),act(){if(s.t<3646.5)s.on^=1}}]},
-update(s,dt){if(!s.on)return;const k=60*dt;s.t=Math.min(3646.5,s.t+k);s.acc+=k;const st=iceQ(20*s.t);if(s.acc>20){s.acc=0;s.pts.push([s.t,st.T])}if(s.t>=3646.5){s.on=0;s.pts.push([s.t,100])}},
+update(s,dt){if(!s.on)return;heat([[rnd(260,284),FLOOR-10],[rnd(250,290),FLOOR-30]],8,dt);const k=60*dt;s.t=Math.min(3646.5,s.t+k);s.acc+=k;const st=iceQ(20*s.t);if(s.acc>20){s.acc=0;s.pts.push([s.t,st.T])}if(s.t>=3646.5){s.on=0;s.pts.push([s.t,100])}},
 draw(s){const st=iceQ(20*s.t),x=270;line(170,FLOOR-14,230,FLOOR-14,'#2a2a2e');line(230,FLOOR-14,236,FLOOR-40,'#2a2a2e');
   R(x-34,FLOOR-64,68,64,'#4a2e1c');R(x-32,FLOOR-62,64,62,'#6b4a2a');R(x-28,FLOOR-58,56,54,'#140e10');
   const lh=st.liq/100*36;if(lh>0)R(x-28,FLOOR-4-lh,56,lh,mix('#2f6a86','#5a8aa0',st.T/100));
@@ -432,22 +462,23 @@ draw(s){const st=iceQ(20*s.t),x=270;line(170,FLOOR-14,230,FLOOR-14,'#2a2a2e');li
   const g=Graph(330,40,128,78,[0,3800],[-30,110]);graphFrame(g,'T vs t','t','T');
   dashed(g.x,g.Y(0),g.x+g.w,g.Y(0),'#8a7a6a');dashed(g.x,g.Y(100),g.x+g.w,g.Y(100),'#8a7a6a');TX('0',g.x-2,g.Y(0)+3,'#4a2e1c','right');TX('100',g.x-2,g.Y(100)+3,'#4a2e1c','right');
   if(s.revealed)[1000,2000,3000].forEach(t=>TX(String(t),g.X(t),g.y+g.h+9,'#4a2e1c','center'));
-  poly(g,s.pts.concat(s.on?[[s.t,st.T]]:[]),'#a3232a')},
+  poly(g,s.pts.concat(s.on?[[s.t,st.T]]:[]),'#a3232a');
+  const ph=st.ph==='todo evaporado'?'gas':(st.ice>50?'solid':'liquid');lens(176,90,24,{T:st.T,ph,col:ph==='solid'?'#cfe8f2':'#6ab0d8',gas:st.ph==='hirviendo'?4:0,lab:ph==='solid'?'red de hielo':ph==='gas'?'vapor':'agua líquida'})},
 read(s){const st=iceQ(20*s.t);return[['Etapa',s.t?st.ph:'sin conectar'],['Hielo',fmt(st.ice,0)+' g'],['Agua líquida',fmt(st.liq,0)+' g'],['Tiempo',s.revealed?fmt(s.t,0)+' s':'?']]},
 lights(){return[[270,180,90],[394,80,90]]}});
 
 LV.push({id:'5.9',name:'Muro y vitral',win:[],
 enun:'¿Cuántos m² de ventana de vidrio de 4 mm conducirían tanto calor como un muro de hormigón de 10 m² y 10 cm de espesor, con la misma diferencia de temperatura? Estimar el calor que atraviesa el muro en una hora si dentro hay 20 °C y fuera −10 °C.',
 dato:'k<sub>hormigón</sub> = 2·10<sup>−3</sup> cal/(s·cm·°C), k<sub>vidrio</sub> = 1,5·10<sup>−4</sup> cal/(s·cm·°C).',
-task:'La palanca cambia el área del vitral de a 0,5 m². Las chispas son el calor que cruza de adentro hacia afuera. Las barras del pergamino comparan los dos flujos.',
+task:'La palanca cambia el área del vitral de a 0,5 m². Los paquetes dorados son el calor que cruza de adentro hacia afuera, y el color del muro muestra cómo cae la temperatura dentro de él. Las barras del pergamino comparan los dos flujos.',
 bk:{sec:'23-2',tit:'Conducción del calor',f:'H = k · A · ΔT / L',p:'<p>El flujo de calor H, en calorías por segundo, crece con el área y con la diferencia de temperatura, y baja con el espesor.</p><p>Igualá H del vidrio con H del muro. ΔT es el mismo y se cancela. Cuidado con las unidades: k viene en centímetros, así que pasá áreas a cm² y espesores a cm.</p>'},
 sol:'A<sub>v</sub> = A<sub>m</sub>·(k<sub>m</sub>/k<sub>v</sub>)·(L<sub>v</sub>/L<sub>m</sub>) = 10·13,33·(0,4/10) ≈ <b>5,33 m²</b>. H<sub>muro</sub> = 2·10<sup>−3</sup>·10<sup>5</sup>·30/10 = 600 cal/s; en una hora <b>Q ≈ 2,16·10<sup>6</sup> cal</b>.',
 qs:[{q:'¿Cuánta área de vidrio conduce lo mismo que el muro?',o:[{v:'5,33 m²',ok:1},{v:'133 m²',why:'Te faltó el cociente de espesores. El vidrio es 25 veces más fino, así que necesita 25 veces menos área.'},{v:'0,03 m²',why:'Invertiste las conductividades. El vidrio conduce peor que el hormigón, así que hace falta más área por eso.'},{v:'3333 m²',why:'Invertiste los espesores. Un vidrio más fino deja pasar más calor, no menos.'}]},
  {q:'¿Cuánto calor cruza el muro en una hora?',o:[{v:'2,16·10⁶ cal',ok:1},{v:'600 cal',why:'600 cal/s es el flujo H. Falta multiplicar por los 3600 segundos de una hora.'},{v:'216 cal',why:'Usaste el área en m². Con k en cal/(s·cm·°C) el área va en cm²: 10 m² = 10⁵ cm².'},{v:'7,2·10⁵ cal',why:'Usaste ΔT = 10. Entre 20 °C y −10 °C hay 30 grados.'}]}],
 init(s){s.A=2},
 props(s){return[atril(),{type:'lever',x:370,get on(){return s.A>5},label:()=>'Cambiar el área del vitral',act(){s.A=s.A>=10?.5:s.A+.5}}]},
-update(s,dt){const Hv=112.5*s.A;if(Math.random()<15*dt)spawn({x:120,y:130+Math.random()*96,vx:60,life:2.2,max:2.2,c:'#ff9a3a'});if(Math.random()<Hv/40*dt)spawn({x:250,y:FLOOR-4-Math.random()*s.A*10,vx:60,life:2.2,max:2.2,c:'#ffd27a'})},
-draw(s){R(164,128,14,FLOOR-128,'#7a7470');for(let i=0;i<10;i++)R(165+(i*5)%12,132+i*9,2,2,'#5e5854');TX('muro 10 m²',171,122,'#ebe0c6','center');
+update(s,dt){const Hv=112.5*s.A;const y1=rnd(132,FLOOR-6);heat([[130,y1],[214,y1]],15,dt);const y2=FLOOR-4-Math.random()*s.A*10;heat([[256,y2],[340,y2]],Hv/40,dt)},
+draw(s){for(let x=0;x<14;x++)R(164+x,128,1,FLOOR-128,mix('#b0603a','#4f7090',x/13));for(let i=0;i<10;i++)R(165+(i*5)%12,132+i*9,2,2,'rgba(0,0,0,.25)');TX('muro 10 m²',171,122,'#ebe0c6','center');
   const hv=s.A*10;R(296,FLOOR-hv-2,6,hv+2,'#2a1a14');for(let y=0;y<hv;y+=6)R(298,FLOOR-hv+y,2,6,['#a3232a','#c9a14a','#3a6aa0'][(y/6)%3]);TX(fmt(s.A)+' m²',299,FLOOR-hv-7,'#ebe0c6','center');
   TX('adentro 20 °C',90,110,'#ff9a3a','center');TX('afuera −10 °C',220,110,'#8ec5e6','center');
   const g={x:395,y:44,w:60,h:76};R(g.x-12,g.y-12,g.w+24,g.h+26,'#2a1a10');R(g.x-10,g.y-10,g.w+20,g.h+22,'#d3bf94');TX('flujo H',g.x+g.w/2,g.y-2,'#4a2e1c','center');
@@ -471,7 +502,7 @@ update(s,dt){const sim=120*dt,n=Math.ceil(sim/.3),h=sim/n,T=s.T;let chg=0;
   for(let it=0;it<n;it++){T[0]=s.lit?100:newton(T[0],20,.02,h);T[BN]=0;const nT=T.slice();
     for(let i=1;i<BN;i++){const kL=i<=BJ?.92:.125,kR=i<BJ?.92:.125,rc=i<BJ?.819:i>BJ?.858:.84;nT[i]=T[i]+h/rc*(kR*(T[i+1]-T[i])-kL*(T[i]-T[i-1]));chg+=Math.abs(nT[i]-T[i])}
     for(let i=1;i<BN;i++)T[i]=nT[i]}
-  s.chg=chg/Math.max(sim,1e-6);const Hice=.125*2*(T[BN-1]-T[BN]);if(Hice>0&&Math.random()<Hice*dt*4)drop(368+Math.random()*12,186)},
+  s.chg=chg/Math.max(sim,1e-6);const Hj=.92*2*(T[BJ-1]-T[BJ]);heat([[104,181],[354,181],[366,170]],Math.max(0,Hj)*5,dt);const Hice=.125*2*(T[BN-1]-T[BN]);if(Hice>0&&Math.random()<Hice*dt*4)drop(368+Math.random()*12,186)},
 draw(s){R(58,140,46,FLOOR-140,'#5a2e24');for(let y=142;y<FLOOR;y+=6)for(let x=58+((y/6)%2)*5;x<104;x+=10)R(x,y,9,5,'#6e3a2c');ctx.fillStyle='#140a08';ctx.fillRect(66,196,30,34);if(s.lit){fire(81,FLOOR-4,true);fire(81,FLOOR-4,true)}TX('100 °C',81,134,'#ff9a3a','center');
   const T=s.T,col=t=>mix('#4a3a34','#ff5a2a',t/100);for(let x=104;x<354;x++){const u=(x-104)/250*BN,i=Math.min(BN-1,Math.floor(u)),f=u-i;R(x,178,1,6,col(T[i]+(T[i+1]-T[i])*f))}R(104,178,250,1,'rgba(255,255,255,.18)');
   TX('cobre 30 cm',179,172,'#ebe0c6','center');TX('acero 20 cm',304,172,'#ebe0c6','center');
@@ -489,7 +520,7 @@ sol:'P = 0,4/4,186 ≈ 0,0956 cal/s, entonces K = 0,0191 cal/(s·°C). C = 25·0
 qs:[{q:'¿Cuánto tarda en bajar a 1,84 °C?',o:[{v:'119 s',ok:1},{v:'75 s',why:'Supusiste que se enfría siempre al ritmo del primer instante. Al bajar T pierde calor más despacio, la caída es exponencial.'},{v:'28 s',why:'Usaste 0,4 como si fueran cal/s. Son watts: 0,4 W = 0,0956 cal/s.'},{v:'238 s',why:'Eso son dos constantes de tiempo, lo que tarda en llegar a 5/e² ≈ 0,68 °C.'}]}],
 init(s){s.on=0;s.T=0;s.t=0;s.pts=[[0,0]];s.acc=0;s.off=null},
 props(s){return[atril(),{type:'lever',x:190,get on(){return s.on},label:()=>s.on?'Cortar la corriente':'Conectar la resistencia',act(){s.on^=1;if(!s.on)s.off=s.t}}]},
-update(s,dt){const k=10*dt,P=.4/4.186,K=P/5,C=25*.091;s.T+=((s.on?P:0)-K*s.T)/C*k;s.t+=k;s.acc+=k;if(s.acc>3){s.acc=0;s.pts.push([s.t,s.T]);if(s.pts.length>400)s.pts.shift()}},
+update(s,dt){if(s.on)heat([[rnd(258,282),FLOOR-28],[rnd(264,276),FLOOR-36]],6,dt);const a=rnd(-2.6,-.5);heat([[270,FLOOR-36],[270+Math.cos(a)*40,FLOOR-36+Math.sin(a)*40]],s.T*1.2,dt);const k=10*dt,P=.4/4.186,K=P/5,C=25*.091;s.T+=((s.on?P:0)-K*s.T)/C*k;s.t+=k;s.acc+=k;if(s.acc>3){s.acc=0;s.pts.push([s.t,s.T]);if(s.pts.length>400)s.pts.shift()}},
 draw(s){R(254,FLOOR-24,32,24,'#3a2f2c');R(252,FLOOR-26,36,3,'#5e4f4a');for(let i=0;i<5;i++)R(258+i*5,FLOOR-30,3,4,s.on?'#ff5a2a':'#6a3a2a');R(262,FLOOR-40,16,10,mix('#b8733a','#ff7a3a',s.T/8));R(262,FLOOR-40,16,1,'rgba(255,255,255,.35)');TX('25 g de cobre',270,FLOOR-46,'#ebe0c6','center');
   line(190,FLOOR-10,252,FLOOR-14,'#2a2a2e');
   const t1=Math.max(0,s.t-900),g=Graph(320,40,136,80,[t1,t1+900],[0,6]);graphFrame(g,'T vs t','t','T');
@@ -507,11 +538,12 @@ bk:{sec:'21-5',tit:'Gas ideal',f:'p·V = n·R·T,  m = n·M',p:'<p>La ecuación 
 sol:'P<sub>1</sub> = 7,033 kgf/cm² ≈ 6,90·10<sup>5</sup> Pa, n<sub>1</sub> = P<sub>1</sub>V/(RT<sub>1</sub>) ≈ 12,96 mol, entonces <b>m<sub>1</sub> ≈ 415 g</b>. P<sub>2</sub> = 6,033 kgf/cm², n<sub>2</sub> ≈ 11,86 mol y m<sub>2</sub> ≈ 380 g. Se escaparon <b>≈ 35 g</b>.',
 qs:[{q:'a) ¿Cuánto oxígeno había al principio?',o:[{v:'415 g',ok:1},{v:'354 g',why:'Usaste la presión manométrica. pV = nRT necesita la absoluta: 6 + 1,033 kgf/cm².'},{v:'2824 g',why:'Usaste 47 en lugar de 320 K. La temperatura del gas ideal va en kelvin.'},{v:'12,96 g',why:'12,96 son moles. Multiplicá por 32 g/mol.'}]},
  {q:'b) ¿Cuánto se escapó?',o:[{v:'35 g',ok:1},{v:'59 g',why:'Usaste 320 K también al final. La temperatura bajó a 300 K, y eso hace que quede más gas para la misma presión.'},{v:'39 g',why:'Usaste presiones manométricas en los dos estados. Sumá la atmosférica.'},{v:'380 g',why:'Esa es la masa que quedó en el tanque. Lo escapado es la diferencia con la inicial.'}]}],
-init(s){s.P=6;s.open=0},
+init(s){s.P=6;s.open=0;s.g=gasInit(48)},
 props(s){return[atril(),{type:'none',x:300,label:()=>s.P<=5.001?'La fuga ya se detuvo':(s.open?'Cerrar la válvula':'Abrir la válvula'),act(){if(s.P>5.001)s.open^=1}}]},
-update(s,dt){if(s.open&&s.P>5){s.P=Math.max(5,s.P-.15*dt);if(Math.random()<.9)puff(292,FLOOR-34,1);if(s.P<=5)s.open=0}},
+update(s,dt){gasStep(s.g,300+20*(s.P-5),dt,24,30);if(s.open&&s.P>5){s.P=Math.max(5,s.P-.15*dt);if(Math.random()<.9)puff(292,FLOOR-34,1);if(s.P<=5)s.open=0}},
 draw(s){const x=250;R(x-24,120,48,FLOOR-120,'#2f4a3e');ctx.fillStyle='#2f4a3e';ctx.beginPath();ctx.arc(x,120,24,Math.PI,0);ctx.fill();R(x-20,124,4,FLOOR-124,'#45685a');R(x-4,90,8,8,'#3a3a40');TX('O2',x,170,'#d6c39e','center');TX('50 L',x,182,'#a39580','center');
   dial(x,82,12,s.P/10);TX(fmt(s.P,2)+' kgf/cm²',x,62,'#ebe0c6','center');
+  const Tk=300+20*(s.P-5),nr=((s.P+1.033)/Tk)/(7.033/320);R(x-14,128,28,34,'#8a8a92');R(x-12,130,24,30,'#0e0b10');gasDraw(s.g,x-12,130,24,30,Tk,Math.round(48*nr));TX('mirilla',x,190,'#a39580','center');
   R(x+24,FLOOR-36,14,4,'#3a3a40');circ(x+40,FLOOR-34,5,s.open?'#c9a14a':'#7a6a5a');R(x+39,FLOOR-39,2,10,'#3a3a40');
   plaque(340,100,22,96);const T=27+20*(s.P-5);thermo(351,108,76,(T-20)/32);TX(fmt(T,1)+' °C',351,206,'#ebe0c6','center')},
 read(s){const T=27+20*(s.P-5);return[['Manómetro',fmt(s.P,2)+' kgf/cm²'],['Temperatura',fmt(T,1)+' °C'],['Válvula',s.P<=5.001?'fuga detenida':(s.open?'abierta':'cerrada')]]},
@@ -526,14 +558,14 @@ sol:'Al cerrar a 400 K: n = 101325·0,002/(8,314·400) ≈ 0,0609 mol, entonces 
 qs:[{q:'a) ¿Qué presión queda al final?',o:[{v:'0,75 atm',ok:1},{v:'1,33 atm',why:'Multiplicaste por 400/300. Al enfriar, la presión baja: va 300/400.'},{v:'1 atm',why:'Con la llave cerrada el gas ya no está conectado a la atmósfera. Al enfriarse, su presión baja.'},{v:'0,25 atm',why:'Esa es la caída de presión, 1 − 0,75. La pregunta es cuánto queda.'}]},
  {q:'b) ¿Cuántos gramos de oxígeno quedan?',o:[{v:'1,95 g',ok:1},{v:'2,60 g',why:'Esa es la masa inicial, a 300 K. Al calentar con la llave abierta se escapó gas.'},{v:'0,061 g',why:'0,061 son moles. Multiplicá por 32 g/mol.'},{v:'0,65 g',why:'Esa es la masa que se escapó. La pregunta es la que queda adentro.'}]}],
 init(s){s.T=300;s.open=1;s.n=1;s.mol=[];for(let i=0;i<40;i++)s.mol.push({x:(Math.random()-.5)*20,y:(Math.random()-.5)*20,vx:(Math.random()-.5)*40,vy:(Math.random()-.5)*40})},
-props(s){return[atril(),brasero(240,dt=>{s.T=Math.min(400,s.T+25*dt);s.h=1}),pila(390,dt=>{s.T=Math.max(300,s.T-30*dt);s.h=1},'Enfriar el matraz con agua'),{type:'none',x:268,py:186,r:18,label:()=>s.open?'Cerrar la llave':'Abrir la llave',act(){s.open^=1}}]},
+props(s){return[atril(),brasero(240,dt=>{s.T=Math.min(400,s.T+25*dt);s.h=1;heat([[240,FLOOR-18],[252,FLOOR-24],[258,FLOOR-30]],8,dt)}),pila(390,dt=>{s.T=Math.max(300,s.T-30*dt);s.h=1;heat([[272,198],[330,200],[388,FLOOR-20]],8,dt)},'Enfriar el matraz con agua'),{type:'none',x:268,py:186,r:18,label:()=>s.open?'Cerrar la llave':'Abrir la llave',act(){s.open^=1}}]},
 update(s,dt){if(!s.h)s.T=newton(s.T,300,.01,dt);s.h=0;if(s.open)s.n=Math.min(s.n,300/s.T);if(s.open&&s.n<300/s.T)s.n=300/s.T;
   const N=Math.round(40*s.n);while(s.mol.length>N){s.mol.pop();for(let k=0;k<3;k++)puff(260,158,Math.random()-.5)}while(s.mol.length<N)s.mol.push({x:0,y:-14,vx:(Math.random()-.5)*40,vy:20});
   const v=Math.sqrt(s.T/300);for(const m of s.mol){m.x+=m.vx*v*dt;m.y+=m.vy*v*dt;const d=Math.hypot(m.x,m.y);if(d>15){m.x*=14.5/d;m.y*=14.5/d;const nx=m.x/d,ny=m.y/d,dot=m.vx*nx+m.vy*ny;m.vx-=2*dot*nx;m.vy-=2*dot*ny}}},
 draw(s){const cx=260,cy=198;R(240,FLOOR-14,2,14,'#2a201c');R(278,FLOOR-14,2,14,'#2a201c');
   ctx.fillStyle='rgba(190,220,230,.18)';ctx.beginPath();ctx.arc(cx,cy,17,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#c8dde4';ctx.lineWidth=1;ctx.stroke();
   R(cx-4,162,8,20,'rgba(190,220,230,.25)');R(cx-5,162,1,20,'#c8dde4');R(cx+4,162,1,20,'#c8dde4');R(cx-6,156,12,4,'#8a6a2a');R(cx+6,157,6,2,s.open?'#7fa86a':'#a3232a');
-  for(const m of s.mol)R(cx+m.x,cy+m.y,1,1,'#ffd27a');
+  for(const m of s.mol)R(cx+m.x,cy+m.y,1,1,speedCol(Math.hypot(m.vx,m.vy)/26*Math.sqrt(s.T/300)));
   R(282,186,52,4,'#5e4f4a');R(284,190,48,3,'#3a2f2c');
   plaque(196,92,22,70);thermo(207,98,52,(s.T-280)/140);TX(fmt(s.T,0)+' K',207,170,'#ebe0c6','center')},
 read(s){const P=s.open?1:s.n*s.T/300;return[['Temperatura',fmt(s.T,0)+' K'],['Llave',s.open?'abierta':'cerrada'],['Gas adentro',fmt(s.n*100,0)+' % del inicial'],['Presión',s.open?'1 atm':(s.revealed?fmt(P,3)+' atm':'?')]]},
@@ -548,11 +580,11 @@ qs:[{q:'¿Cuánto vale la densidad de un gas ideal?',o:[{v:'ρ = PM / RT',ok:1},
  {q:'A presión constante, si T se duplica, la densidad',o:[{v:'se reduce a la mitad',ok:1},{v:'se duplica',why:'A P constante, al calentar el gas se expande. La misma masa en el doble de volumen es la mitad de densidad.'},{v:'no cambia',why:'La masa no cambia, pero el volumen sí. Probalo con el brasero y mirá cómo sube la tapa.'}]},
  {q:'A temperatura constante, si P se duplica, la densidad',o:[{v:'se duplica',ok:1},{v:'se reduce a la mitad',why:'Más presión comprime el gas. La misma masa en la mitad de volumen tiene el doble de densidad.'},{v:'se cuadruplica',why:'ρ es proporcional a P, no a P².'}]}],
 init(s){s.T=300;s.P=1;s.h=50;s.mol=[];for(let i=0;i<34;i++)s.mol.push({x:Math.random(),y:Math.random(),vx:Math.random()-.5,vy:Math.random()-.5})},
-props(s){return[atril(),brasero(190,dt=>s.T=Math.min(600,s.T+60*dt)),pila(350,dt=>s.T=Math.max(150,s.T-60*dt)),{type:'lever',x:410,get on(){return s.P>1},label:()=>s.P>1?'Sacar pesas, 1 atm':'Poner pesas, 2 atm',act(){s.P=s.P>1?1:2}}]},
+props(s){return[atril(),brasero(190,dt=>{s.T=Math.min(600,s.T+60*dt);heat([[190,FLOOR-18],[230,FLOOR-10],[256,FLOOR-12]],8,dt)}),pila(350,dt=>{s.T=Math.max(150,s.T-60*dt);heat([[282,FLOOR-12],[316,FLOOR-10],[348,FLOOR-20]],8,dt)}),{type:'lever',x:410,get on(){return s.P>1},label:()=>s.P>1?'Sacar pesas, 1 atm':'Poner pesas, 2 atm',act(){s.P=s.P>1?1:2}}]},
 update(s,dt){const ht=clamp(50*(s.T/300)/s.P,12,100);s.h+=(ht-s.h)*3*dt;const v=Math.sqrt(s.T/300)*.8;for(const m of s.mol){m.x+=m.vx*v*dt;m.y+=m.vy*v*dt;if(m.x<0||m.x>1)m.vx*=-1;if(m.y<0||m.y>1)m.vy*=-1;m.x=clamp(m.x,0,1);m.y=clamp(m.y,0,1)}},
 draw(s){const x=270,b=FLOOR-8,w=44;R(x-30,b,60,8,'#3a2f2c');ctx.strokeStyle='#c8dde4';ctx.lineWidth=1;ctx.strokeRect(x-w/2,b-110,w,110);ctx.fillStyle='rgba(190,220,230,.08)';ctx.fillRect(x-w/2,b-110,w,110);
   const top=b-s.h;R(x-w/2+1,top-4,w-2,4,'#6b5a4e');R(x-2,top-14,4,10,'#6b5a4e');if(s.P>1){R(x-10,top-22,20,8,'#4a4a52');R(x-8,top-28,16,6,'#5a5a62')}
-  for(const m of s.mol)R(x-w/2+2+m.x*(w-5),top+1+m.y*(s.h-3),1,1,'#ffd27a')},
+  for(const m of s.mol)R(x-w/2+2+m.x*(w-5),top+1+m.y*(s.h-3),1,1,speedCol(Math.hypot(m.vx,m.vy)/.42*Math.sqrt(s.T/300)))},
 read(s){return[['Presión',s.P+' atm'],['Temperatura',fmt(s.T,0)+' K'],['Volumen',fmt(s.T/300/s.P,2)+' V₀'],['Densidad',fmt(s.P*300/s.T,2)+' ρ₀']]},
 lights(){return[[270,160,100]]}});
 
@@ -563,10 +595,10 @@ task:'Pará frente al mango, mantené E para empujar y caminá con él. Si solt�
 bk:{sec:'21-5',tit:'Ley de Boyle',f:'P<sub>1</sub>·V<sub>1</sub> = P<sub>2</sub>·V<sub>2</sub>',p:'<p>A temperatura constante, si comprimís un gas, su presión sube en la misma proporción en que baja el volumen. En un cilindro el volumen es proporcional al largo de aire.</p><p>La válvula del neumático se abre cuando la presión del inflador iguala la del neumático. Compará presiones absolutas: 2,5 manométricos son 3,5 absolutos.</p>'},
 sol:'1·45 = 3,5·L, entonces L = 12,86 cm de aire. El pistón recorrió 45 − 12,86 ≈ <b>32,1 cm</b>.',
 qs:[{q:'¿Cuánto recorrió el pistón cuando empieza a entrar aire?',o:[{v:'32,1 cm',ok:1},{v:'12,9 cm',why:'Ese es el largo de aire que queda en el inflador. Lo recorrido es 45 menos eso.'},{v:'27,0 cm',why:'Usaste 2,5 kgf/cm². El aire del inflador tiene que igualar la presión absoluta del neumático, 3,5.'},{v:'18,0 cm',why:'Revisá Boyle: P·L se mantiene. 1·45 = 3,5·L.'}]}],
-init(s){s.p=0;s.push=0;s.inf=0;s.P=1},
+init(s){s.p=0;s.push=0;s.inf=0;s.P=1;s.g=gasInit(36)},
 props(s){return[atril(),{type:'none',get x(){return 170+s.p*150-38},r:14,label:'Empujar el pistón',hold(dt){s.p=Math.min(.97,s.p+.2*dt);s.push=1}}]},
-update(s,dt){if(!s.push)s.p=Math.max(0,s.p-.5*dt);s.push=0;s.P=Math.min(3.5,1/(1-s.p));if(s.P>=3.5&&s.p<.97){s.inf=Math.min(1,s.inf+.1*dt);if(Math.random()<.6)puff(360,FLOOR-24,1)}},
-draw(s){const x0=170,x1=320,y=194;R(x0,y,x1-x0,14,'#5a5a62');R(x0+2,y+2,x1-x0-4,10,'#1e1a1c');const xp=x0+s.p*150;R(xp+1,y+2,x1-xp-3,10,mix('#3a4a58','#6a8aa8',(s.P-1)/2.5));R(xp-1,y+1,3,12,'#8a8a92');R(xp-38,y+6,38,2,'#8a8a92');R(xp-40,y-6,4,26,'#6b4a2b');
+update(s,dt){gasStep(s.g,300,dt,Math.max(4,(1-s.p)*146),10);if(!s.push)s.p=Math.max(0,s.p-.5*dt);s.push=0;s.P=Math.min(3.5,1/(1-s.p));if(s.P>=3.5&&s.p<.97){s.inf=Math.min(1,s.inf+.1*dt);if(Math.random()<.6)puff(360,FLOOR-24,1)}},
+draw(s){const x0=170,x1=320,y=194;R(x0,y,x1-x0,14,'#5a5a62');R(x0+2,y+2,x1-x0-4,10,'#1e1a1c');const xp=x0+s.p*150;R(xp+1,y+2,x1-xp-3,10,'#141a22');gasDraw(s.g,xp+2,y+2,x1-xp-4,10,300);R(xp-1,y+1,3,12,'#8a8a92');R(xp-38,y+6,38,2,'#8a8a92');R(xp-40,y-6,4,26,'#6b4a2b');
   line(x1,y+7,350,y+7,'#2a2a2e',2);line(350,y+7,362,FLOOR-24,'#2a2a2e',2);
   const r=20+s.inf*2;circ(385,FLOOR-r,r,'#1e1a1c');circ(385,FLOOR-r,r-6,'#4a2e1c');circ(385,FLOOR-r,3,'#8a6a2a');for(let i=0;i<8;i++){const a=i*Math.PI/4;line(385,FLOOR-r,385+Math.cos(a)*(r-6),FLOOR-r+Math.sin(a)*(r-6),'#6b4a2b')}
   TX('2,5 kgf/cm²',385,FLOOR-2*r-6,'#a39580','center');
@@ -583,14 +615,14 @@ bk:{sec:'21-5',tit:'Procesos de un gas ideal',f:'PV/T = constante',p:'<p>En la i
 sol:'Isobara: 4 L a 8 L con 2 atm, T pasa de 300 K a <b>600 K</b>, la temperatura de la isoterma. Isoterma a 600 K: PV = 16 atm·L, así que a 4 L la presión es <b>P<sub>max</sub> = 4 atm</b>. Isocora: de 4 atm a 2 atm, y T vuelve a 300 K.',
 qs:[{q:'b) ¿A qué temperatura es la compresión isotérmica?',o:[{v:'600 K',ok:1},{v:'300 K',why:'300 K es la temperatura inicial. La isoterma empieza al final de la expansión, cuando el volumen ya se duplicó.'},{v:'150 K',why:'A presión constante, si el volumen se duplica, la temperatura también se duplica.'},{v:'1200 K',why:'Duplicaste dos veces. Solo la isobara cambia T; en la isoterma se mantiene.'}]},
  {q:'c) ¿Cuál es la presión máxima?',o:[{v:'4 atm',ok:1},{v:'2 atm',why:'En la isobara P se mantiene en 2 atm, pero la compresión isotérmica la sube.'},{v:'8 atm',why:'8 es el volumen máximo, en litros. En la isoterma PV = 16 atm·L, y a 4 L da 4 atm.'},{v:'1 atm',why:'Al comprimir a T constante la presión sube, no baja.'}]}],
-init(s){s.V=4;s.P=2;s.st=0;s.pts=[[4,2]];s.msg=''},
+init(s){s.V=4;s.P=2;s.st=0;s.pts=[[4,2]];s.msg='';s.g=gasInit(40)},
 props(s){const mk=()=>{const l=s.pts[s.pts.length-1];if(Math.hypot(l[0]-s.V,l[1]-s.P)>.08)s.pts.push([s.V,s.P])};
-  return[atril(),pila(150,dt=>{if(s.st===2){s.P=Math.max(2,s.P-.5*dt);if(s.P<=2)s.st=3;mk()}else s.msg=s.st<2?'Todavía no: falta '+(s.st?'comprimir':'expandir'):''},'Enfriar con el pistón trabado'),
-  brasero(250,dt=>{if(s.st===0){s.V=Math.min(8,s.V+1*dt);if(s.V>=8)s.st=1;mk()}else s.msg=s.st>0?'La isobara ya está hecha':''},'Calentar a presión constante'),
-  {type:'none',x:340,label:'Girar el torno de pesas',hold(dt){if(s.st===1){s.V=Math.max(4,s.V-1*dt);s.P=16/s.V;if(s.V<=4)s.st=2;mk()}else s.msg=s.st===0?'Primero expandí con el brasero':''}}]},
-update(s){},
+  return[atril(),pila(150,dt=>{if(s.st===2){heat([[232,FLOOR-40],[190,FLOOR-40],[152,FLOOR-22]],8,dt);s.P=Math.max(2,s.P-.5*dt);if(s.P<=2)s.st=3;mk()}else s.msg=s.st<2?'Todavía no: falta '+(s.st?'comprimir':'expandir'):''},'Enfriar con el pistón trabado'),
+  brasero(250,dt=>{if(s.st===0){heat([[250,FLOOR-18],[250,FLOOR-30]],8,dt);s.V=Math.min(8,s.V+1*dt);if(s.V>=8)s.st=1;mk()}else s.msg=s.st>0?'La isobara ya está hecha':''},'Calentar a presión constante'),
+  {type:'none',x:340,label:'Girar el torno de pesas',hold(dt){if(s.st===1){heat([[268,FLOOR-40],[300,FLOOR-60],[330,FLOOR-50]],8,dt);s.V=Math.max(4,s.V-1*dt);s.P=16/s.V;if(s.V<=4)s.st=2;mk()}else s.msg=s.st===0?'Primero expandí con el brasero':''}}]},
+update(s,dt){gasStep(s.g,37.5*s.P*s.V,dt*.6,34,s.V*10)},
 draw(s){const x=250,b=FLOOR-26,w=36;R(x-2,b,4,10,'#2a201c');R(x-w/2-2,b-90,2,90,'#8a8a92');R(x+w/2,b-90,2,90,'#8a8a92');R(x-w/2-2,b,w+4,3,'#6a6a72');
-  const hh=s.V*10,top=b-hh;R(x-w/2,top,w,hh,mix('#2a3a48','#a04a2a',s.P*s.V/8-1));R(x-w/2,top-4,w,4,'#6b5a4e');R(x-2,top-30,4,26,'#6b5a4e');const nw=s.st>=1?Math.round(s.P):2;for(let i=0;i<nw;i++)R(x-9,top-38-i*6,18,5,i%2?'#5a5a62':'#4a4a52');
+  const hh=s.V*10,top=b-hh;R(x-w/2,top,w,hh,'#141a22');gasDraw(s.g,x-w/2+1,top,w-2,hh,37.5*s.P*s.V);R(x-w/2,top-4,w,4,'#6b5a4e');R(x-2,top-30,4,26,'#6b5a4e');const nw=s.st>=1?Math.round(s.P):2;for(let i=0;i<nw;i++)R(x-9,top-38-i*6,18,5,i%2?'#5a5a62':'#4a4a52');
   if(s.st>=2){R(x-w/2-6,top-6,w+12,2,'#c9a14a')}
   R(330,FLOOR-34,20,34,'#4a2e1c');circ(340,FLOOR-40,8,'#6b4a2b');R(339,FLOOR-48,2,16,'#3a2416');
   const g=Graph(352,42,104,78,[0,10],[0,5]);graphFrame(g,'P vs V','V (L)','P');[4,8].forEach(v=>TX(String(v),g.X(v),g.y+g.h+9,'#4a2e1c','center'));TX('2',g.x-2,g.Y(2)+3,'#4a2e1c','right');R(g.x,g.Y(2),2,1,'#4a2e1c');
@@ -599,6 +631,7 @@ draw(s){const x=250,b=FLOOR-26,w=36;R(x-2,b,4,10,'#2a201c');R(x-w/2-2,b-90,2,90,
 read(s){return[['Etapa',['1. expansión a P constante','2. compresión a T constante','3. enfriamiento a V constante','ciclo cerrado'][s.st]],['Calor',['entra','sale','sale','ciclo completo'][s.st]],['Volumen',fmt(s.V,2)+' L'],['Presión',s.revealed||s.st===0?fmt(s.P,2)+' atm':'?'],['Temperatura',s.revealed||s.st===0?fmt(37.5*s.P*s.V,0)+' K':'?']].concat(s.msg?[['Aviso',s.msg]]:[])},
 lights(){return[[260,170,110],[404,80,80]]}});
 
+const SIMS={"5.1": [], "5.2": [["Dilatación térmica de sólidos (Wolfram)", "https://demonstrations.wolfram.com/ThermalExpansionOfSolids/"]], "5.3": [["Dilatación térmica de sólidos (Wolfram)", "https://demonstrations.wolfram.com/ThermalExpansionOfSolids/"], ["Lámina bimetálica (Open Source Physics)", "https://iwant2study.moe.edu.sg/sg.iwant2study.org/ospsg/index.php/interactive-resources/physics/03-thermal-physics/thermodynamic-systems/04-thermal-properties-of-matter/1517-12-bimetallic-strip-interactive-simulation-lower-secondary-science-by-eric"]], "5.4": [["Lámina bimetálica (Open Source Physics)", "https://iwant2study.moe.edu.sg/sg.iwant2study.org/ospsg/index.php/interactive-resources/physics/03-thermal-physics/thermodynamic-systems/04-thermal-properties-of-matter/1517-12-bimetallic-strip-interactive-simulation-lower-secondary-science-by-eric"]], "5.5": [["Propiedades de los gases (PhET)", "https://phet.colorado.edu/en/simulations/gas-properties"], ["Termómetro de volumen constante (U. de Oregon)", "https://pages.uoregon.edu/physdemo/Thermodynamics/Ideal_Gas/ConstantV.html"]], "5.6": [["Calorimetría (Physlets, ComPADRE)", "https://www.compadre.org/Physlets/thermodynamics/ex19_3.cfm"], ["Formas y cambios de energía (PhET)", "https://phet.colorado.edu/en/simulations/energy-forms-and-changes"]], "5.7": [["Agregar calor y curva de calentamiento (Open Source Physics)", "https://iwant2study.org/lookangejss/03thermalphysics_09transferofthermalenergy/ejss_model_addHeat/"], ["Formas y cambios de energía (PhET)", "https://phet.colorado.edu/en/simulations/energy-forms-and-changes"]], "5.8": [["Laboratorio de cambios de fase (Physics Classroom)", "https://www.physicsclassroom.com/interactive/solids-liquids-and-intermolecular-forces/phase-change-lab/notes"], ["Estados de la materia (PhET)", "https://phet.colorado.edu/en/simulations/states-of-matter"]], "5.9": [["Transferencia de calor (Open Source Physics)", "https://iwant2study.moe.edu.sg/sg.iwant2study.org/ospsg/index.php/interactive-resources/physics/03-thermal-physics/thermodynamic-systems/969-heattransferv2"], ["Energy2D, programa libre", "https://github.com/charxie/energy2d"]], "5.10": [["Flujo de calor en una barra (Open Source Physics)", "https://iwant2study.org/lookangejss/03thermalphysics_11thermalpropertiesofmatter/ejss_model_PICUP_heatflow_1d_frem/"], ["Energy2D, programa libre", "https://github.com/charxie/energy2d"]], "5.11": [["Ley de enfriamiento (Open Source Physics)", "https://iwant2study.org/lookangejss/03thermalphysics_10temperature/ejss_model_CoolingPrimaryv5/"]], "5.12": [["Propiedades de los gases (PhET)", "https://phet.colorado.edu/en/simulations/gas-properties"]], "5.13": [["Propiedades de los gases (PhET)", "https://phet.colorado.edu/en/simulations/gas-properties"]], "5.14": [["Propiedades de los gases (PhET)", "https://phet.colorado.edu/en/simulations/gas-properties"], ["Estados de la materia (PhET)", "https://phet.colorado.edu/en/simulations/states-of-matter"]], "5.15": [["Ley de Boyle con jeringa", "https://nicklauscairns.github.io/simulations/physical-sciences/boyles-law/the-squeeze-exploring-boyles-law-task/"], ["Propiedades de los gases (PhET)", "https://phet.colorado.edu/en/simulations/gas-properties"]], "5.16": [["Gas ideal y diagrama P-V (Open Source Physics)", "https://iwant2study.org/lookangejss/03thermalphysics_11thermalpropertiesofmatter/ejss_model_thermalPVT/"], ["Propiedades de los gases (PhET)", "https://phet.colorado.edu/en/simulations/gas-properties"]]};
 
 const $=id=>document.getElementById(id);
 let solved=new Set(load('erm-tp5-solved',[]));
@@ -616,8 +649,9 @@ function choose(i){if(s.wait>0||s.lamp[i]!=='idle')return;const o=s.opts[i];
 function solve(){s.revealed=true;if(!solved.has(lv.id)){solved.add(lv.id);save('erm-tp5-solved',[...solved])}pips();say('La reja se abrió. En el libro está la resolución.');updHud()}
 
 function loadLevel(i){cur=i;lv=LV[i];s={revealed:solved.has(lv.id),qi:solved.has(lv.id)?lv.qs.length:0,wait:0,tries:0};lv.init(s);if(lv.update)lv.update(s,0);
-  P.x=22;P.y=FLOOR;P.vx=P.vy=0;P.f=1;parts=[];cam=0;if(!bgCache[i])bgCache[i]=makeBg(lv,i);save('erm-tp5-cur',i);
+  P.x=22;P.y=FLOOR;P.vx=P.vy=0;P.f=1;parts=[];chunks=[];cam=0;if(!bgCache[i])bgCache[i]=makeBg(lv,i);save('erm-tp5-cur',i);
   $('pNum').textContent=lv.id;$('pName').textContent=lv.name;$('pEnun').innerHTML=lv.enun;$('pDato').innerHTML=lv.dato||'';$('pDato').hidden=!lv.dato;$('pTask').innerHTML='<b>En la sala.</b> '+lv.task;
+  const sl=SIMS[lv.id]||[];$('pSims').innerHTML=sl.length?'Para ver lo que pasa, simulaciones externas: '+sl.map(x=>'<a href="'+x[1]+'" target="_blank" rel="noopener">'+x[0]+'</a>').join(' · '):'';$('pSims').hidden=!sl.length;
   setQ();pips();updRead();closeBook()}
 function updHud(){const n=lv.qs.length;if(s.qi>=n){$('hudN').textContent='Sala resuelta';$('hudQ').innerHTML='La reja está abierta. Seguí hacia la derecha.<small>El libro tiene la resolución completa.</small>'}
   else{$('hudN').textContent='Pregunta '+(s.qi+1)+' de '+n;$('hudQ').innerHTML=lv.qs[s.qi].q+'<small>Probá las máquinas y después encendé, en el altar del fondo, la lámpara con la respuesta.</small>'}}
@@ -630,7 +664,8 @@ function updRead(){const rows=lv.read?lv.read(s):[];$('pRead').innerHTML=rows.ma
 function openBook(mode,opt){if(state!=='play')return;bookMode=mode;const b=lv.bk;
   if(mode==='err'){$('bkL').innerHTML='<small>La lámpara se apagó</small><h3>'+opt.v+'</h3><p>'+lv.qs[s.qi].q+'</p><p>Ese número sale de un error muy común. En la otra página está cuál.</p><div class="fx">'+b.f+'</div>';$('bkR').innerHTML='<small>Dónde está el error</small><p>'+opt.why+'</p><p>Las demás lámparas siguen encendibles.</p>'}
   else if(mode==='sol'){$('bkL').innerHTML='<small>Resolución · sala '+lv.id+'</small><h3>'+lv.name+'</h3><div class="fx">'+b.f+'</div>';$('bkR').innerHTML='<small>Paso a paso</small><p>'+lv.sol+'</p>'}
-  else{const q=s.qi<lv.qs.length?'<p><small>Lo que te preguntan</small>'+lv.qs[s.qi].q+'</p>':'';$('bkL').innerHTML='<small>Halliday, sección '+b.sec+'</small><h3>'+b.tit+'</h3><div class="fx">'+b.f+'</div>'+q;$('bkR').innerHTML='<small>Cómo pensarlo</small>'+b.p}
+  const simL=(SIMS[lv.id]||[]).length?'<p><small>Para ver lo que pasa</small>'+(SIMS[lv.id]).map(x=>'<a href="'+x[1]+'" target="_blank" rel="noopener">'+x[0]+'</a>').join('<br>')+'</p>':'';
+  if(mode==='teo'){const q=s.qi<lv.qs.length?'<p><small>Lo que te preguntan</small>'+lv.qs[s.qi].q+'</p>':'';$('bkL').innerHTML='<small>Halliday, sección '+b.sec+'</small><h3>'+b.tit+'</h3><div class="fx">'+b.f+'</div>'+q;$('bkR').innerHTML='<small>Cómo pensarlo</small>'+b.p+simL}
   $('tSol').hidden=!s.revealed;$('tTeo').classList.toggle('sel',mode==='teo');$('tSol').classList.toggle('sel',mode==='sol');
   const bk=$('bk'),was=!$('book').hidden;$('book').hidden=false;state='book';
   if(!was){bk.classList.remove('open');void bk.offsetWidth;requestAnimationFrame(()=>requestAnimationFrame(()=>bk.classList.add('open')))}
@@ -670,7 +705,7 @@ function update(dt){
   if(!s.revealed&&P.x>=DOOR-10&&P.vx>0&&toastT<.3)say('La reja sigue cerrada. Encendé las lámparas correctas.');
   if(s.revealed&&P.x>=712){if(cur<LV.length-1)loadLevel(cur+1);else menu('El claustro queda iluminado','Resolviste las dieciséis salas del TP 5.',false)}
   cam+=(clamp(P.x-W*.42,0,RW-W)-cam)*Math.min(1,6*dt);
-  stepParts(dt)}
+  stepParts(dt);stepChunks(dt)}
 let readT=0;
 function render(){
   ctx.setTransform(2,0,0,2,0,0);ctx.imageSmoothingEnabled=false;const cx=Math.round(cam);
@@ -681,7 +716,7 @@ function render(){
   if(!s.opts.length)LAMPX.forEach(x=>drawLamp(x,'good'));
   lv.draw(s);drawDoor(s.revealed);
   const L=drawHermit(P.x,P.y,P.f,P.moving,lv.carry?lv.carry(s):null);
-  drawParts();
+  drawParts();drawChunks();
   ctx.restore();
   dctx.setTransform(2,0,0,2,0,0);dctx.globalCompositeOperation='source-over';dctx.clearRect(0,0,W,H);dctx.fillStyle='rgba(8,4,9,.6)';dctx.fillRect(0,0,W,H);dctx.globalCompositeOperation='destination-out';
   const fl=1+Math.sin(now*13)*.03+Math.sin(now*7.3)*.03;
